@@ -468,7 +468,7 @@ class BrowserManager:
         if not history.is_file():
             return 0
         try:
-            with sqlite3.connect(f"file:{history}?mode=ro", uri=True) as connection:
+            with sqlite3.connect(str(history)) as connection:
                 return int(connection.execute("SELECT COUNT(*) FROM urls").fetchone()[0])
         except sqlite3.Error:
             return 0
