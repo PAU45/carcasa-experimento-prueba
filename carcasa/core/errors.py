@@ -56,3 +56,14 @@ class SwitchFailed(CarcasaError):
 
 class RecoveryRequired(CarcasaError):
     """La conmutacion no se pudo revertir sola; hay diario pendiente."""
+
+
+class LockedOut(CarcasaError):
+    def __init__(self, remaining: float) -> None:
+        self.remaining = max(0.0, float(remaining))
+        super().__init__("Espera un momento.")
+
+
+class SessionError(CarcasaError):
+    pass
+

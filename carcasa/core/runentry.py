@@ -79,13 +79,17 @@ class RunEntry:
     def state_file(self) -> Path:
         return self.paths.state / "runentry.json"
 
-    def collision(self, name: str) -> str | None:
+    def collision(self, name: str, exe_path: str | Path | None = None) -> str | None:
         target = f"{name}.exe"
+        installed = self._installed_name()
+        own = bool(installed and installed.casefold() == name.casefold())
         for hive in ("HKCU", "HKLM"):
             if self.registry.key_exists(hive, f"{APP_PATHS}\\{target}"):
+                if hive == "HKCU" and own:
+                    continue
                 return "registro"
             for sub in self.registry.list_subkeys(hive, APP_PATHS):
-                if sub.casefold() == target.casefold():
+                if sub.casefold() == target.casefold() and not (hive == "HKCU" and own):
                     return "registro"
         if self.registry.key_exists("HKCR", f"Applications\\{target}"):
             return "registro"
@@ -97,11 +101,11 @@ class RunEntry:
         return None
 
     def install(self, exe_path: str | Path, name: str | None = None) -> str:
-        name = validate_name(name or self._configured_name())
+        name = validate_name(self._configured_name() if name is None else name)
         exe_path = Path(exe_path).resolve()
         if not exe_path.is_file():
             raise NameRejected("Ejecutable no encontrado.")
-        collision = self.collision(name)
+        collision = self.collision(name, exe_path)
         if collision:
             raise NameCollision("Ese nombre ya existe. Elige otro.")
         self.registry.write_value("HKCU", f"{APP_PATHS}\\{name}.exe", "", str(exe_path))
