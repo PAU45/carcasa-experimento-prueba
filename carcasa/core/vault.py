@@ -716,7 +716,8 @@ class _TeeWriter:
         return self._handle.write(block)
 
 
-def header_summary(path: str | Path) -> dict:    """Datos publicos de la cabecera, utiles para diagnostico sin secretos."""
+def header_summary(path: str | Path) -> dict:
+    """Datos publicos de la cabecera, utiles para diagnostico sin secretos."""
     header = _header_from_json((Path(path) / HEADER_NAME).read_bytes())
     return {
         "version": header.version,

@@ -67,3 +67,7 @@ class LockedOut(CarcasaError):
 class SessionError(CarcasaError):
     pass
 
+
+class ScrubError(CarcasaError):
+    pass
+
