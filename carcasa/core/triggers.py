@@ -210,16 +210,18 @@ class HotkeyListener:
         return self.registered
 
     def _run(self) -> None:
+        import ctypes.wintypes as wintypes
+
         user32 = ctypes.windll.user32
         self._thread_id = ctypes.windll.kernel32.GetCurrentThreadId()
         self.registered = bool(user32.RegisterHotKey(None, 1, self.modifiers, self.key))
         self._ready.set()
         if not self.registered:
             return
-        message = ctypes.create_string_buffer(64)
+        message = wintypes.MSG()
         try:
-            while user32.GetMessageW(message, None, 0, 0) > 0:
-                if int.from_bytes(message[:4], "little") == WM_HOTKEY:
+            while user32.GetMessageW(ctypes.byref(message), None, 0, 0) > 0:
+                if message.message == WM_HOTKEY:
                     try:
                         self.callback()
                     except Exception:
