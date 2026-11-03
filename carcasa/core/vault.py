@@ -716,8 +716,7 @@ class _TeeWriter:
         return self._handle.write(block)
 
 
-def header_summary(path: str | Path) -> dict:
-    """Datos publicos de la cabecera, utiles para diagnostico sin secretos."""
+def header_summary(path: str | Path) -> dict:    """Datos publicos de la cabecera, utiles para diagnostico sin secretos."""
     header = _header_from_json((Path(path) / HEADER_NAME).read_bytes())
     return {
         "version": header.version,
@@ -727,3 +726,14 @@ def header_summary(path: str | Path) -> dict:
         "pin": header.wrap_pin is not None,
         "recovery": header.wrap_rec is not None,
     }
+
+
+def revoke_pin_on_disk(path: str | Path) -> None:
+    """L4 con la boveda cerrada: elimina la envoltura del PIN sin abrirla."""
+    path = Path(path)
+    header_path = path / HEADER_NAME
+    header = _header_from_json(header_path.read_bytes())
+    if header.wrap_rec is None:
+        raise VaultRevoked("No hay codigo de recuperacion: no se puede revocar.")
+    header.wrap_pin = None
+    atomic_write_bytes(header_path, _header_to_json(header))

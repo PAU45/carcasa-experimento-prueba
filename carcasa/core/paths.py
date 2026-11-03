@@ -72,6 +72,10 @@ class AppPaths:
         return self.state / "links-ocultos"
 
     @property
+    def tmp(self) -> Path:
+        return self.root / "tmp"
+
+    @property
     def log(self) -> Path:
         return self.state / "activity.log"
 

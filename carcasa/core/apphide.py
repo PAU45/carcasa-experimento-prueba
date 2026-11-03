@@ -12,7 +12,8 @@ from __future__ import annotations
 import json
 import os
 import shutil
-from dataclasses import dataclass, field
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Protocol
 
@@ -23,9 +24,10 @@ from .paths import (
     recent_dir,
     start_menu_dirs,
 )
-from .winutil import atomic_write_bytes, is_windows, sha256_file
+from .winutil import atomic_write_bytes, is_windows
 
 VISIBLE_DEFAULT = {"vs code", "visual studio code", "git", "node"}
+VISIBLE_ALIASES = {"vs code": "vs code", "visual studio code": "vs code", "vscode": "vs code"}
 HIDDEN_DEFAULT = ["Docker", "Gemini", "Antigravity", "GitHub Desktop", "OpenCode", "Trae"]
 
 
@@ -64,12 +66,17 @@ def spec_for(name: str) -> AppSpec:
     return AppSpec(name.strip(), (normalized,), (), (normalized + ".exe",))
 
 
+def canonical_name(name: str) -> str:
+    lowered = name.strip().casefold()
+    return VISIBLE_ALIASES.get(lowered, lowered)
+
+
 def default_specs(hide_names: list[str] | None = None, visible: set[str] | None = None) -> list[AppSpec]:
-    visible = {item.casefold() for item in (visible or VISIBLE_DEFAULT)}
+    visible = {canonical_name(item) for item in (visible or VISIBLE_DEFAULT)}
     names = list(hide_names or HIDDEN_DEFAULT)
     specs: list[AppSpec] = []
     for name in names:
-        if name.strip().casefold() in visible:
+        if canonical_name(name) in visible:
             continue
         specs.append(spec_for(name))
     return specs
@@ -200,7 +207,7 @@ class AppHider:
     ) -> None:
         self.paths = paths or AppPaths.default()
         settings = read_config(self.paths)
-        self.visible = {item.casefold() for item in (visible_names or settings.get("visible_apps") or VISIBLE_DEFAULT)}
+        self.visible = {canonical_name(item) for item in (visible_names or settings.get("visible_apps") or VISIBLE_DEFAULT)}
         self.specs = default_specs(hide_names or settings.get("hide_apps") or HIDDEN_DEFAULT, self.visible)
         self.desktop_dirs = desktop_dirs if desktop_dirs is not None else self._desktop_dirs()
         self.menus = menus if menus is not None else start_menu_dirs()
@@ -209,7 +216,7 @@ class AppHider:
         self.hidden_dir = hidden_dir or self.paths.hidden_links
         self.processes = processes or RealProcesses()
         self.target_reader = target_reader
-        self.mover = mover
+        self.mover = mover or shutil.move
         self.close_timeout = close_timeout
         self.problems: list[str] = []
 
@@ -386,7 +393,7 @@ class AppHider:
             raw = path.read_bytes()[: 2 * 1024 * 1024]
         except OSError:
             return False
-        haystacks = [raw.casefold(), raw.decode("utf-16-le", "ignore").casefold().encode("utf-8")]
+        haystacks = [raw.lower(), raw.decode("utf-16-le", "ignore").casefold().encode("utf-8")]
         for spec in self.specs:
             for pattern in spec.patterns:
                 needle = pattern.casefold()
@@ -427,11 +434,11 @@ class AppHider:
             return 0
         for pid, _name in found:
             self.processes.request_close(pid)
-        deadline = __import__("time").monotonic() + max(0.0, self.close_timeout)
-        while __import__("time").monotonic() < deadline:
+        deadline = time.monotonic() + max(0.0, self.close_timeout)
+        while time.monotonic() < deadline:
             if not any(self.processes.is_running(pid) for pid, _ in found):
                 break
-            __import__("time").sleep(0.1)
+            time.sleep(0.1)
         for pid, _name in found:
             if self.processes.is_running(pid):
                 self.processes.kill(pid)
